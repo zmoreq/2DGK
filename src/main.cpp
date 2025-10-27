@@ -1,7 +1,9 @@
 #include <SFML/Graphics.hpp>
 #include <string>
 #include <iostream>
-
+#include <fstream>
+#include "Level.h"
+#include "Game.h"
 
 
 sf::Vector2f getDirectionFromKeyboard() {
@@ -23,11 +25,11 @@ int main()
 	std::string title = "Zadanie 3";
     sf::RenderWindow window(sf::VideoMode({ 1280, 720 }), title);
 
-    sf::CircleShape circle(50.f);
+    sf::CircleShape circle(25.f);
     sf::RectangleShape rect(sf::Vector2f(50, 50));
 
-    const sf::Texture rectTexture("../src/textures/texture1.png");
-    const sf::Texture circleTexture("../src/textures/texture2.png");
+    const sf::Texture rectTexture("../../../../textures/texture1.png");
+    const sf::Texture circleTexture("../../../../textures/texture2.png");
 
     circle.setPosition(sf::Vector2f(10, 10));
     rect.setPosition(sf::Vector2f(640, 10));
@@ -41,6 +43,11 @@ int main()
     float rectSpeed = 200.f;
     sf::Vector2f player1Direction = sf::Vector2f(0.f, 0.f);
     sf::Vector2f player2Direction = sf::Vector2f(0.f, 0.f);
+
+    // test
+    Level level(window.getSize().x, window.getSize().y);
+	level.loadFromFile("../../../../src/level1.txt");
+
 
     while (window.isOpen())
     {
@@ -63,10 +70,11 @@ int main()
         sf::Vector2f circleNewPosition = lerpVector(circleCurrentPosition, circleTargetPosition, 2.f * delta);
         circle.setPosition(circleNewPosition);
 
-
+        
         window.clear(sf::Color(111, 194, 118));
         window.draw(circle);
         window.draw(rect);
+		level.draw(window);
         window.display();
     }
 }
