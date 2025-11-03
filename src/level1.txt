@@ -1,6 +1,6 @@
 [textures]
-[w]="../../../../textures/texture1.png"
-[f]="../../../../textures/texture2.png"
+w=../../../../textures/texture2.png
+f=../../../../textures/texture2.png
 
 [map]
 wwwwwwwwwwwwwwwwwwwwwww
