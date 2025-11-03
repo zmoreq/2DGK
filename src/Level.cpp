@@ -8,6 +8,7 @@ Level::Level(int windowWidth, int windowHeight)
 	this->windowHeight = windowHeight;
 	this->mapWidth = 1;
 	this->mapHeight = 1;
+	this->tileSize = 64;
 }
 
 Level::~Level()
@@ -80,7 +81,6 @@ bool Level::loadFromFile(std::string filePath)
 		mapHeight = lines.size();
 		mapWidth = lines[0].length();
 
-		this->tileSize = std::min(this->windowWidth / this->mapWidth, this->windowHeight / this->mapHeight);
 		for (int i = 0; i < mapHeight; i++)
 		{
 			for (int j = 0; j < mapWidth; j++)

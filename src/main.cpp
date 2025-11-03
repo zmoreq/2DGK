@@ -22,32 +22,33 @@ static sf::Vector2f lerpVector(sf::Vector2f start, sf::Vector2f end, float delta
 
 int main()
 {
-	std::string title = "Zadanie 3";
+	std::string title = "2DGK";
+	int windowWidth = 1280;
+	int windowHeight = 720;
+	sf::Vector2f cameraPos = sf::Vector2f(windowWidth / 2.f, windowHeight / 2.f);
     sf::RenderWindow window(sf::VideoMode({ 1280, 720 }), title);
 
-    sf::CircleShape circle(25.f);
-    sf::RectangleShape rect(sf::Vector2f(50, 50));
+    sf::RectangleShape player(sf::Vector2f(50, 50));
 
     const sf::Texture rectTexture("../../../../textures/texture1.png");
-    const sf::Texture circleTexture("../../../../textures/texture2.png");
+    
 
-    circle.setPosition(sf::Vector2f(10, 10));
-    rect.setPosition(sf::Vector2f(640, 10));
+    player.setPosition(sf::Vector2f(720, 360));
 
-    circle.setTexture(&circleTexture);
-    circle.setFillColor(sf::Color(255, 255, 255, 128));
-    rect.setTexture(&rectTexture);
+    player.setTexture(&rectTexture);
+	player.setFillColor(sf::Color(255, 255, 255, 125));
 
     sf::Clock clock;
-    float circleSpeed = 200.f;
-    float rectSpeed = 200.f;
+    float playerSpeed = 200.f;
     sf::Vector2f player1Direction = sf::Vector2f(0.f, 0.f);
-    sf::Vector2f player2Direction = sf::Vector2f(0.f, 0.f);
 
     // test
     Level level(window.getSize().x, window.getSize().y);
 	level.loadFromFile("../../../../src/level1.txt");
 
+    //view
+    sf::View view({ player.getPosition().x, player.getPosition().y}, {(float)windowWidth, (float)windowHeight});
+    window.setView(view);
 
     while (window.isOpen())
     {
@@ -61,20 +62,29 @@ int main()
 
         float delta = clock.restart().asSeconds();
 
-        rect.move(player1Direction * rectSpeed * delta); //player1
+        player.move(player1Direction * playerSpeed * delta); //player1
 
-        // player2
-        sf::Vector2f circleTargetPosition = sf::Vector2f(sf::Mouse::getPosition(window));
-        sf::Vector2f circleCurrentPosition = circle.getPosition();
+		//camera follow player
+        float minX = windowWidth / 2;
+        float maxX = (level.mapWidth * level.tileSize) - windowWidth / 2;
 
-        sf::Vector2f circleNewPosition = lerpVector(circleCurrentPosition, circleTargetPosition, 2.f * delta);
-        circle.setPosition(circleNewPosition);
+        float minY = windowHeight / 2;
+        float maxY = (level.mapHeight * level.tileSize) - windowHeight / 2;
 
-        
+		cameraPos = lerpVector(cameraPos, player.getPosition(), 5.f * delta);
+
+        cameraPos.x = std::clamp(cameraPos.x, minX, maxX);
+
+        cameraPos.y = std::clamp(cameraPos.y, minY, maxY);
+		view.setCenter(cameraPos);
+
+		window.setView(view);
+
         window.clear(sf::Color(111, 194, 118));
-        window.draw(circle);
-        window.draw(rect);
+
+        window.draw(player);
 		level.draw(window);
+
         window.display();
     }
 }

@@ -14,8 +14,7 @@ public:
 	int mapWidth;
 	int mapHeight;
 
-	int tileSize = std::min(windowWidth / mapWidth, windowHeight / mapHeight);
-
+	int tileSize;
 
 	std::string filePath;
 	sf::Texture wallTexture;
