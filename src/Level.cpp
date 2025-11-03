@@ -8,7 +8,6 @@ Level::Level(int windowWidth, int windowHeight)
 	this->windowHeight = windowHeight;
 	this->mapWidth = 1;
 	this->mapHeight = 1;
-	this->wallTexture.loadFromFile("../../../../textures/texture2.png");
 }
 
 Level::~Level()
@@ -24,11 +23,41 @@ bool Level::loadFromFile(std::string filePath)
 	std::vector<std::string> lines;
 	std::string line;
 
+	bool readingMap = false;
+	bool readingTextures = false;
+
 	if (file.is_open())
 	{
 
 		while (std::getline(file, line)) {
-			if (!line.empty()) {
+			if (line == "[textures]")
+			{
+				readingTextures = true;
+				continue;
+			}
+
+			if (line == "[map]")
+			{
+				readingMap = true;
+				continue;
+			}
+
+			if (!line.empty() && readingTextures) {
+				char key = line[0];
+				std::string texturePath = line.substr(2);
+				if (key == '[w]') {
+					wallTexture.loadFromFile(texturePath);
+					std::cout << "Loaded wall texture from: " << texturePath << std::endl;
+				}
+				else if (key == '[f]') {
+					floorTexture.loadFromFile(texturePath);
+				}
+				else {
+					readingTextures = false;
+				}
+			}
+			
+			if (!line.empty() && readingMap) {
 				lines.push_back(line);
 			}
 		}
@@ -42,7 +71,7 @@ bool Level::loadFromFile(std::string filePath)
 			for (int j = 0; j < mapWidth; j++)
 			{
 				char c = lines[i][j];
-				if (c == '#')
+				if (c == 'w')
 				{
 					sf::RectangleShape rect(sf::Vector2f(tileSize, tileSize));
 					rect.setTexture(&wallTexture);

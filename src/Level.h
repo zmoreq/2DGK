@@ -19,6 +19,7 @@ public:
 
 	std::string filePath;
 	sf::Texture wallTexture;
+	sf::Texture floorTexture;
 	std::vector<sf::RectangleShape> walls;
 
 	Level(int windowWidth, int windowHeight);
