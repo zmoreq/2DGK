@@ -6,12 +6,22 @@
 #include "Game.h"
 
 
-sf::Vector2f getDirectionFromKeyboard() {
+sf::Vector2f getDirectionPlayer1() {
 
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) return sf::Vector2f(-1.f, 0.f);
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) return sf::Vector2f(1.f, 0.f);
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) return sf::Vector2f(0.f, -1.f);
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) return sf::Vector2f(0.f, 1.f);
+
+    return sf::Vector2f(0.f, 0.f);
+}
+
+sf::Vector2f getDirectionPlayer2() {
+
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) return sf::Vector2f(-1.f, 0.f);
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) return sf::Vector2f(1.f, 0.f);
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)) return sf::Vector2f(0.f, -1.f);
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)) return sf::Vector2f(0.f, 1.f);
 
     return sf::Vector2f(0.f, 0.f);
 }
@@ -28,26 +38,34 @@ int main()
 	sf::Vector2f cameraPos = sf::Vector2f(windowWidth / 2.f, windowHeight / 2.f);
     sf::RenderWindow window(sf::VideoMode({ 1280, 720 }), title);
 
-    sf::RectangleShape player(sf::Vector2f(50, 50));
+    sf::RectangleShape player1(sf::Vector2f(50, 50));
+	sf::RectangleShape player2(sf::Vector2f(50, 50));
 
     const sf::Texture rectTexture("../../../../textures/texture1.png");
     
 
-    player.setPosition(sf::Vector2f(720, 360));
+    player1.setPosition(sf::Vector2f(720, 360));
+	player2.setPosition(sf::Vector2f(560, 360));
 
-    player.setTexture(&rectTexture);
-	player.setFillColor(sf::Color(255, 255, 255, 125));
+    player1.setTexture(&rectTexture);
+	player2.setTexture(&rectTexture);
+
+	player1.setFillColor(sf::Color(255, 0, 0, 255));
+	player2.setFillColor(sf::Color(0, 0, 255, 255));
 
     sf::Clock clock;
     float playerSpeed = 200.f;
     sf::Vector2f player1Direction = sf::Vector2f(0.f, 0.f);
+	sf::Vector2f player2Direction = sf::Vector2f(0.f, 0.f);
 
     // test
     Level level(window.getSize().x, window.getSize().y);
 	level.loadFromFile("../../../../src/level1.txt");
 
     //view
-    sf::View view({ player.getPosition().x, player.getPosition().y}, {(float)windowWidth, (float)windowHeight});
+	sf::Vector2f averagePos = (player1.getPosition() + player2.getPosition()) / 2.f;
+    sf::View view({ averagePos.x, averagePos.y}, {(float)windowWidth, (float)windowHeight});
+    float distance;
     window.setView(view);
 
     while (window.isOpen())
@@ -58,11 +76,16 @@ int main()
                 window.close();
         }
 
-        player1Direction = getDirectionFromKeyboard();
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape))
+			window.close();
+
+        player1Direction = getDirectionPlayer1();
+		player2Direction = getDirectionPlayer2();
 
         float delta = clock.restart().asSeconds();
 
-        player.move(player1Direction * playerSpeed * delta); //player1
+        player1.move(player1Direction * playerSpeed * delta); //player1
+		player2.move(player2Direction * playerSpeed * delta); //player2
 
 		//camera follow player
         float minX = windowWidth / 2;
@@ -71,18 +94,34 @@ int main()
         float minY = windowHeight / 2;
         float maxY = (level.mapHeight * level.tileSize) - windowHeight / 2;
 
-		cameraPos = lerpVector(cameraPos, player.getPosition(), 5.f * delta);
+		sf::Vector2f diff = player1.getPosition() - player2.getPosition();
+		float horizontalDistance = std::abs(diff.x);
+		float verticalDistance = std::abs(diff.y);
+
+		float zoomFactor = std::max(horizontalDistance / view.getSize().x, verticalDistance / view.getSize().y);
+
+		float targetWidth = view.getSize().x * (1.f * zoomFactor);
+		float targetHeight = view.getSize().y * (1.f * zoomFactor);
+
+		targetWidth = std::clamp(targetWidth, 720.f, 4000.f);
+		targetHeight = std::clamp(targetHeight, 1280.f, 8000.f);
+		view.setSize(lerpVector(view.getSize(), sf::Vector2f(targetWidth, targetHeight), 5.f * delta));
+
+
+		averagePos = (player1.getPosition() + player2.getPosition()) / 2.f;
+		cameraPos = lerpVector(cameraPos, averagePos, 5.f * delta);
 
         cameraPos.x = std::clamp(cameraPos.x, minX, maxX);
-
         cameraPos.y = std::clamp(cameraPos.y, minY, maxY);
-		view.setCenter(cameraPos);
 
+
+		view.setCenter(cameraPos);
 		window.setView(view);
 
         window.clear(sf::Color(111, 194, 118));
 
-        window.draw(player);
+        window.draw(player1);
+		window.draw(player2);
 		level.draw(window);
 
         window.display();

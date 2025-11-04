@@ -46,14 +46,11 @@ bool Level::loadFromFile(std::string filePath)
 			if (!line.empty() && readingTextures) {
 
 				int pos = line.find("=");
-				std::cout << pos << std::endl;
 
 				if (pos >= 0) {
 
 					char key = line[0];
 					std::string texturePath = line.substr(pos + 1);
-
-					std::cout << "Texture key: " << key << ", path: " << texturePath << std::endl;
 
 					if (key == 'w') {
 						if (!wallTexture.loadFromFile(texturePath)) {
