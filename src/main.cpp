@@ -41,6 +41,9 @@ int main()
     sf::RectangleShape player1(sf::Vector2f(50, 50));
 	sf::RectangleShape player2(sf::Vector2f(50, 50));
 
+    player1.setOrigin({ 25.f, 25.f });
+    player2.setOrigin({ 25.f, 25.f });
+
     const sf::Texture rectTexture("../../../../textures/texture1.png");
     
 
@@ -95,16 +98,16 @@ int main()
         float maxY = (level.mapHeight * level.tileSize) - windowHeight / 2;
 
 		sf::Vector2f diff = player1.getPosition() - player2.getPosition();
-		float horizontalDistance = std::abs(diff.x);
-		float verticalDistance = std::abs(diff.y);
+		float horizontalDistance = std::abs(diff.x) + 200;
+		float verticalDistance = std::abs(diff.y) + 200;
 
 		float zoomFactor = std::max(horizontalDistance / view.getSize().x, verticalDistance / view.getSize().y);
 
 		float targetWidth = view.getSize().x * (1.f * zoomFactor);
 		float targetHeight = view.getSize().y * (1.f * zoomFactor);
 
-		targetWidth = std::clamp(targetWidth, 720.f, 4000.f);
-		targetHeight = std::clamp(targetHeight, 1280.f, 8000.f);
+		targetWidth = std::clamp(targetWidth, 1280.f, 4000.f);
+		targetHeight = std::clamp(targetHeight, 720.f, 8000.f);
 		view.setSize(lerpVector(view.getSize(), sf::Vector2f(targetWidth, targetHeight), 5.f * delta));
 
 
