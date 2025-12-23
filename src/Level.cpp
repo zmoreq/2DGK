@@ -15,6 +15,16 @@ Level::~Level()
 {
 }
 
+std::vector<sf::RectangleShape>& Level::getWalls()
+{
+	return walls;
+}
+
+std::vector<sf::Vector2f>& Level::getPointLocations()
+{
+	return pointLocations;
+}
+
 bool Level::loadFromFile(std::string filePath)
 {
 	std::ifstream file(filePath);
@@ -66,8 +76,6 @@ bool Level::loadFromFile(std::string filePath)
 						readingTextures = false;
 					}
 				}
-
-				
 			}
 			
 			if (!line.empty() && readingMap) {
@@ -90,6 +98,15 @@ bool Level::loadFromFile(std::string filePath)
 					rect.setPosition(sf::Vector2f(j * tileSize, i * tileSize));
 					walls.push_back(rect);
 				}
+				else if (c == 'p')
+				{
+					sf::RectangleShape rect(sf::Vector2f(tileSize, tileSize));
+					rect.setTexture(&floorTexture);
+					rect.setFillColor(sf::Color(255, 255, 0));
+					rect.setPosition(sf::Vector2f(j * tileSize, i * tileSize));
+					points.push_back(rect);
+					pointLocations.push_back(sf::Vector2f(j * tileSize + tileSize / 2.f, i * tileSize + tileSize / 2.f));
+				}
 			}
 		}
 
@@ -107,5 +124,9 @@ void Level::draw(sf::RenderWindow& window)
 	for (auto& wall : walls)
 	{
 		window.draw(wall);
+	}
+	for (auto& point : points)
+	{
+		window.draw(point);
 	}
 }

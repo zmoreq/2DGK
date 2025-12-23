@@ -20,12 +20,16 @@ public:
 	sf::Texture wallTexture;
 	sf::Texture floorTexture;
 	std::vector<sf::RectangleShape> walls;
+	std::vector<sf::RectangleShape> points;
+	std::vector<sf::Vector2f> pointLocations;
 
 	Level(int windowWidth, int windowHeight);
 	~Level();
 
 	bool loadFromFile(std::string filePath);
 	void draw(sf::RenderWindow& window);
+	std::vector<sf::RectangleShape>& getWalls();
+	std::vector<sf::Vector2f>& getPointLocations();
 
 private:
 

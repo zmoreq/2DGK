@@ -5,6 +5,7 @@
 #include "Level.h"
 #include "Game.h"
 #include "Ball.h"
+#include <cmath>
 
 
 sf::Vector2f getDirectionPlayer1() {
@@ -31,6 +32,98 @@ static sf::Vector2f lerpVector(sf::Vector2f start, sf::Vector2f end, float delta
     return start + (end - start) * delta;
 }
 
+void updatePlayerPhysics(Level& level, sf::RectangleShape& player, sf::Vector2f velocity) {
+    player.move({ velocity.x, 0.f });
+
+    for (auto& wall : level.getWalls()) {
+        if (player.getGlobalBounds().findIntersection(wall.getGlobalBounds())) {
+            std::cout << "Collision detected!" << std::endl;
+
+            if (velocity.x > 0) {
+                player.setPosition({ wall.getPosition().x - player.getSize().x / 2.f, player.getPosition().y });
+            }
+            else if (velocity.x < 0) {
+                player.setPosition({ wall.getPosition().x + wall.getSize().x + player.getSize().x / 2.f, player.getPosition().y });
+            }
+        }
+    }
+
+	player.move({ 0.f, velocity.y });
+
+    for (auto& wall : level.getWalls()) {
+        if (player.getGlobalBounds().findIntersection(wall.getGlobalBounds())) {
+            std::cout << "Collision detected!" << std::endl;
+            if (velocity.y > 0) {
+                player.setPosition({ player.getPosition().x, wall.getPosition().y - player.getSize().y / 2.f });
+            }
+            else if (velocity.y < 0) {
+                player.setPosition({ player.getPosition().x, wall.getPosition().y + wall.getSize().y + player.getSize().y / 2.f });
+            }
+        }
+	}
+}
+
+void changePointLocation(sf::Vector2f& point, sf::Vector2f location1, sf::Vector2f location2, Level level) {
+	std::vector<sf::Vector2f> locations = level.getPointLocations();
+
+    for (int i = 0; i < locations.size(); ++i) {
+        if (location1 != locations[i] && location2 != locations[i]) {
+			point = locations[i];
+			return;
+		}
+	}
+}
+
+void updateArrowDirection(sf::CircleShape& arrow, sf::Vector2f playerPos, sf::Vector2f targetPos) {
+    float dx = targetPos.x - playerPos.x;
+    float dy = targetPos.y - playerPos.y;
+
+    float angleInRadians = std::atan2(dy, dx);
+
+    float radius = 60.f;
+
+    float arrowX = playerPos.x + radius * std::cos(angleInRadians);
+    float arrowY = playerPos.y + radius * std::sin(angleInRadians);
+
+    arrow.setPosition({ arrowX, arrowY });
+
+    sf::Angle angle = sf::radians(angleInRadians);
+    arrow.setRotation(angle + sf::degrees(90.f));
+}
+
+void handlePointLocations(sf::RectangleShape& player1, sf::RectangleShape& player2, Level level, sf::Vector2f& point) {
+	std::vector<sf::Vector2f> locations = level.getPointLocations();
+
+    if (locations.size() < 2) return;
+
+    for (int i = 0; i < locations.size(); ++i) {
+        if (locations[i] == point) {
+            continue;
+        }
+
+        int targetIndex1 = 0;
+		int targetIndex2 = 0;
+
+        if (player1.getGlobalBounds().contains(point) || player2.getGlobalBounds().contains(point)) {
+            do {
+                targetIndex1 = std::rand() % locations.size();
+            } while (targetIndex1 == i);
+
+            do {
+                targetIndex2 = std::rand() % locations.size();
+			} while (targetIndex2 == i);
+
+			sf::Vector2f player1Spawn = locations[targetIndex1];
+			sf::Vector2f player2Spawn = locations[targetIndex2];
+
+            player1.setPosition(player1Spawn);
+            player2.setPosition(player2Spawn);
+
+            changePointLocation(point, player1Spawn, player2Spawn, level);
+        }
+    }
+}
+
 void runGame() {
     std::string title = "2DGK";
     int windowWidth = 1280;
@@ -46,8 +139,9 @@ void runGame() {
 
     const sf::Texture rectTexture("../../../../textures/texture1.png");
 
+	sf::Vector2f point = sf::Vector2f(100.f, 100.f);
 
-    player1.setPosition(sf::Vector2f(720, 360));
+    player1.setPosition(sf::Vector2f(770, 360));
     player2.setPosition(sf::Vector2f(560, 360));
 
     player1.setTexture(&rectTexture);
@@ -71,6 +165,18 @@ void runGame() {
     float distance;
     window.setView(view);
 
+    //arrows
+    sf::CircleShape arrow1(15.f, 3);
+	sf::CircleShape arrow2(15.f, 3);
+
+    arrow1.setFillColor(sf::Color::Yellow);
+	arrow2.setFillColor(sf::Color::Yellow);
+
+    arrow1.setOrigin({ 15.f, 15.f });
+	arrow2.setOrigin({ 15.f, 15.f });
+
+    arrow1.setScale({ 0.7f, 1.2f });
+    arrow2.setScale({ 0.7f, 1.2f });
 
     while (window.isOpen())
     {
@@ -88,8 +194,16 @@ void runGame() {
 
         float delta = clock.restart().asSeconds();
 
-        player1.move(player1Direction * playerSpeed * delta); //player1
-        player2.move(player2Direction * playerSpeed * delta); //player2
+		sf::Vector2f player1Velocity = player1Direction * playerSpeed * delta;
+        updatePlayerPhysics(level, player1, player1Velocity);
+		
+		sf::Vector2f player2Velocity = player2Direction * playerSpeed * delta;
+		updatePlayerPhysics(level, player2, player2Velocity);
+
+        handlePointLocations(player1, player2, level, point);
+
+        updateArrowDirection(arrow1, player1.getPosition(), point);
+        updateArrowDirection(arrow2, player2.getPosition(), point);
 
         //camera follow player
         float minX = windowWidth / 2;
@@ -111,22 +225,25 @@ void runGame() {
         targetHeight = std::clamp(targetHeight, 720.f, 8000.f);
         view.setSize(lerpVector(view.getSize(), sf::Vector2f(targetWidth, targetHeight), 5.f * delta));
 
-
         averagePos = (player1.getPosition() + player2.getPosition()) / 2.f;
         cameraPos = lerpVector(cameraPos, averagePos, 5.f * delta);
 
         cameraPos.x = std::clamp(cameraPos.x, minX, maxX);
         cameraPos.y = std::clamp(cameraPos.y, minY, maxY);
 
-
         view.setCenter(cameraPos);
         window.setView(view);
 
         window.clear(sf::Color(111, 194, 118));
 
+        level.draw(window);
+
         window.draw(player1);
         window.draw(player2);
-        level.draw(window);
+		
+        
+        window.draw(arrow1);
+        window.draw(arrow2);
 
         window.display();
     }
@@ -263,8 +380,8 @@ void runBallsSimulation() {
 
 int main()
 {
-	//runGame();
-	runBallsSimulation();
+	runGame();
+	//runBallsSimulation();
 	return 0;
 }
 
