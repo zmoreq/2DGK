@@ -32,6 +32,22 @@ static sf::Vector2f lerpVector(sf::Vector2f start, sf::Vector2f end, float delta
     return start + (end - start) * delta;
 }
 
+bool checkCircleRectCollision(const sf::CircleShape& circle, const sf::RectangleShape& wall) {
+    sf::Vector2f circleCenter = circle.getPosition();
+    float radius = circle.getRadius();
+
+    sf::FloatRect wallBounds = wall.getGlobalBounds();
+
+    float closestX = std::clamp(circleCenter.x, wallBounds.position.x, wallBounds.position.x + wallBounds.size.x);
+    float closestY = std::clamp(circleCenter.y, wallBounds.position.y, wallBounds.position.y + wallBounds.size.y);
+
+    float distanceX = circleCenter.x - closestX;
+    float distanceY = circleCenter.y - closestY;
+
+    return (distanceX * distanceX + distanceY * distanceY) < (radius * radius);
+}
+
+
 void updatePlayerPhysics(Level& level, sf::RectangleShape& player, sf::Vector2f velocity) {
     player.move({ velocity.x, 0.f });
 
@@ -63,15 +79,66 @@ void updatePlayerPhysics(Level& level, sf::RectangleShape& player, sf::Vector2f 
 	}
 }
 
-void changePointLocation(sf::Vector2f& point, sf::Vector2f location1, sf::Vector2f location2, Level level) {
-	std::vector<sf::Vector2f> locations = level.getPointLocations();
+void updatePlayerPhysics(Level& level, sf::CircleShape& player, sf::Vector2f velocity) {
+    player.move(velocity);
+
+    float radius = player.getRadius();
+    sf::Vector2f playerCenter = player.getPosition();
+
+    for (const auto& wall : level.getWalls()) {
+        sf::FloatRect wallBounds = wall.getGlobalBounds();
+
+        float closestX = std::clamp(playerCenter.x, wallBounds.position.x, wallBounds.position.x + wallBounds.size.x);
+        float closestY = std::clamp(playerCenter.y, wallBounds.position.y, wallBounds.position.y + wallBounds.size.y);
+
+        float dx = playerCenter.x - closestX;
+        float dy = playerCenter.y - closestY;
+
+        float distanceSquared = dx * dx + dy * dy;
+
+        if (distanceSquared < radius * radius) {
+
+            float distance = std::sqrt(distanceSquared);
+
+            if (distance == 0.0f) {
+                distance = 0.01f;
+                dx = 0.01f;
+            }
+
+            float overlap = radius - distance;
+
+            float normX = dx / distance;
+            float normY = dy / distance;
+
+            player.move({ normX * overlap, normY * overlap });
+
+            playerCenter = player.getPosition();
+        }
+    }
+}
+
+void updatePointsVisuals(Level& level, sf::Vector2f activePoint) {
+    for (auto& p : level.points) {
+        if (p.getPosition() == activePoint) {
+            p.setFillColor(sf::Color(255, 255, 0, 255)); // Widoczny
+        }
+        else {
+            p.setFillColor(sf::Color(255, 255, 0, 0));   // Niewidoczny
+        }
+    }
+}
+
+void changePointLocation(sf::Vector2f& point, sf::Vector2f location1, sf::Vector2f location2, Level& level) {
+    std::vector<sf::Vector2f>& locations = level.getPointLocations();
 
     for (int i = 0; i < locations.size(); ++i) {
         if (location1 != locations[i] && location2 != locations[i]) {
-			point = locations[i];
-			return;
-		}
-	}
+            point = locations[i];
+
+			updatePointsVisuals(level, point);
+            return;
+        }
+    }
 }
 
 void updateArrowDirection(sf::CircleShape& arrow, sf::Vector2f playerPos, sf::Vector2f targetPos) {
@@ -91,7 +158,7 @@ void updateArrowDirection(sf::CircleShape& arrow, sf::Vector2f playerPos, sf::Ve
     arrow.setRotation(angle + sf::degrees(90.f));
 }
 
-void handlePointLocations(sf::RectangleShape& player1, sf::RectangleShape& player2, Level level, sf::Vector2f& point) {
+void handlePointLocations(sf::RectangleShape& player1, sf::CircleShape& player2, Level& level, sf::Vector2f& point) {
 	std::vector<sf::Vector2f> locations = level.getPointLocations();
 
     if (locations.size() < 2) return;
@@ -132,14 +199,12 @@ void runGame() {
     sf::RenderWindow window(sf::VideoMode({ 1280, 720 }), title);
 
     sf::RectangleShape player1(sf::Vector2f(50, 50));
-    sf::RectangleShape player2(sf::Vector2f(50, 50));
+    sf::CircleShape player2(25.f);
 
     player1.setOrigin({ 25.f, 25.f });
     player2.setOrigin({ 25.f, 25.f });
 
     const sf::Texture rectTexture("../../../../textures/texture1.png");
-
-	sf::Vector2f point = sf::Vector2f(100.f, 100.f);
 
     player1.setPosition(sf::Vector2f(770, 360));
     player2.setPosition(sf::Vector2f(560, 360));
@@ -159,6 +224,12 @@ void runGame() {
     Level level(window.getSize().x, window.getSize().y);
     level.loadFromFile("../../../../src/level1.txt");
 
+	sf::Vector2f point;
+    std::vector<sf::Vector2f>& locations = level.getPointLocations();
+    if (!locations.empty()) {
+        point = locations[0];
+    }
+
     //view
     sf::Vector2f averagePos = (player1.getPosition() + player2.getPosition()) / 2.f;
     sf::View view({ averagePos.x, averagePos.y }, { (float)windowWidth, (float)windowHeight });
@@ -177,6 +248,8 @@ void runGame() {
 
     arrow1.setScale({ 0.7f, 1.2f });
     arrow2.setScale({ 0.7f, 1.2f });
+
+	updatePointsVisuals(level, point);
 
     while (window.isOpen())
     {
@@ -231,6 +304,8 @@ void runGame() {
         cameraPos.x = std::clamp(cameraPos.x, minX, maxX);
         cameraPos.y = std::clamp(cameraPos.y, minY, maxY);
 
+        sf::FloatRect viewRect(view.getCenter() - view.getSize() / 2.f, view.getSize());
+
         view.setCenter(cameraPos);
         window.setView(view);
 
@@ -241,9 +316,11 @@ void runGame() {
         window.draw(player1);
         window.draw(player2);
 		
-        
-        window.draw(arrow1);
-        window.draw(arrow2);
+        if (!viewRect.contains(point))
+        {
+            window.draw(arrow1);
+            window.draw(arrow2);
+		}
 
         window.display();
     }

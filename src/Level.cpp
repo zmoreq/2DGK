@@ -103,7 +103,9 @@ bool Level::loadFromFile(std::string filePath)
 					sf::RectangleShape rect(sf::Vector2f(tileSize, tileSize));
 					rect.setTexture(&floorTexture);
 					rect.setFillColor(sf::Color(255, 255, 0));
-					rect.setPosition(sf::Vector2f(j * tileSize, i * tileSize));
+					rect.setSize(sf::Vector2f(tileSize / 2.f, tileSize / 2.f));
+					rect.setPosition(sf::Vector2f(j * tileSize + tileSize / 2.f, i * tileSize + tileSize / 2.f));
+					rect.setOrigin(sf::Vector2f(tileSize / 4.f, tileSize / 4.f));
 					points.push_back(rect);
 					pointLocations.push_back(sf::Vector2f(j * tileSize + tileSize / 2.f, i * tileSize + tileSize / 2.f));
 				}
