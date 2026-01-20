@@ -20,6 +20,11 @@ std::vector<sf::RectangleShape>& Level::getWalls()
 	return walls;
 }
 
+std::vector<sf::RectangleShape>& Level::getFloors()
+{
+	return floors;
+}
+
 std::vector<sf::Vector2f>& Level::getPointLocations()
 {
 	return pointLocations;
@@ -98,6 +103,13 @@ bool Level::loadFromFile(std::string filePath)
 					rect.setPosition(sf::Vector2f(j * tileSize, i * tileSize));
 					walls.push_back(rect);
 				}
+				else if (c == 'f')
+				{
+					sf::RectangleShape rect(sf::Vector2f(tileSize, tileSize - 30));
+					rect.setTexture(&floorTexture);
+					rect.setPosition(sf::Vector2f(j * tileSize, i * tileSize));
+					floors.push_back(rect);
+				}
 				else if (c == 'p')
 				{
 					sf::RectangleShape rect(sf::Vector2f(tileSize, tileSize));
@@ -126,6 +138,10 @@ void Level::draw(sf::RenderWindow& window)
 	for (auto& wall : walls)
 	{
 		window.draw(wall);
+	}
+	for (auto& floor : floors)
+	{
+		window.draw(floor);
 	}
 	for (auto& point : points)
 	{

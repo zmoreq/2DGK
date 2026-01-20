@@ -20,6 +20,7 @@ public:
 	sf::Texture wallTexture;
 	sf::Texture floorTexture;
 	std::vector<sf::RectangleShape> walls;
+	std::vector<sf::RectangleShape> floors;
 	std::vector<sf::RectangleShape> points;
 	std::vector<sf::Vector2f> pointLocations;
 
@@ -29,6 +30,7 @@ public:
 	bool loadFromFile(std::string filePath);
 	void draw(sf::RenderWindow& window);
 	std::vector<sf::RectangleShape>& getWalls();
+	std::vector<sf::RectangleShape>& getFloors();
 	std::vector<sf::Vector2f>& getPointLocations();
 
 private:

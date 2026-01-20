@@ -9,23 +9,21 @@
 
 
 sf::Vector2f getDirectionPlayer1() {
-
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) return sf::Vector2f(-1.f, 0.f);
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) return sf::Vector2f(1.f, 0.f);
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)) return sf::Vector2f(0.f, -1.f);
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)) return sf::Vector2f(0.f, 1.f);
-
-    return sf::Vector2f(0.f, 0.f);
+    sf::Vector2f direction(0.f, 0.f);
+    
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)) direction.x -= 1.f;
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right)) direction.x += 1.f;
+    
+    return direction;
 }
 
 sf::Vector2f getDirectionPlayer2() {
-
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) return sf::Vector2f(-1.f, 0.f);
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) return sf::Vector2f(1.f, 0.f);
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W)) return sf::Vector2f(0.f, -1.f);
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S)) return sf::Vector2f(0.f, 1.f);
-
-    return sf::Vector2f(0.f, 0.f);
+    sf::Vector2f direction(0.f, 0.f);
+    
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) direction.x -= 1.f;
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) direction.x += 1.f;
+    
+    return direction;
 }
 
 static sf::Vector2f lerpVector(sf::Vector2f start, sf::Vector2f end, float delta) {
@@ -47,43 +45,92 @@ bool checkCircleRectCollision(const sf::CircleShape& circle, const sf::Rectangle
     return (distanceX * distanceX + distanceY * distanceY) < (radius * radius);
 }
 
+void calculateJumpParameters(float maxHeight, float horizontalDistance, float playerSpeed, float& outGravity, float& outJumpVelocity) {
+    float timeToApex = horizontalDistance / playerSpeed;
+    
+    outGravity = (2.0f * maxHeight) / (timeToApex * timeToApex);
+    
+    outJumpVelocity = -outGravity * timeToApex; 
+}
 
-void updatePlayerPhysics(Level& level, sf::RectangleShape& player, sf::Vector2f velocity) {
-    player.move({ velocity.x, 0.f });
+
+void updatePlayerPhysics(Level& level, sf::RectangleShape& player, sf::Vector2f& velocity, sf::Vector2f& acceleration, float delta, bool& isGrounded, float gravity, bool fastFall) {
+    
+    sf::Vector2f oldAcceleration = acceleration;
+    player.move({ velocity.x * delta, 0.f });
 
     for (auto& wall : level.getWalls()) {
         if (player.getGlobalBounds().findIntersection(wall.getGlobalBounds())) {
-            std::cout << "Collision detected!" << std::endl;
-
             if (velocity.x > 0) {
                 player.setPosition({ wall.getPosition().x - player.getSize().x / 2.f, player.getPosition().y });
             }
             else if (velocity.x < 0) {
                 player.setPosition({ wall.getPosition().x + wall.getSize().x + player.getSize().x / 2.f, player.getPosition().y });
             }
+            velocity.x = 0;
         }
     }
 
-	player.move({ 0.f, velocity.y });
+    player.move({ 0.f, velocity.y * delta + 0.5f * oldAcceleration.y * delta * delta });
+    
+    float currentGravity = gravity;
+    if (fastFall && velocity.y > 0) {
+        currentGravity *= 2.5f;
+    }
+    sf::Vector2f newAcceleration(0.f, currentGravity);
+    
+    isGrounded = false;
 
     for (auto& wall : level.getWalls()) {
         if (player.getGlobalBounds().findIntersection(wall.getGlobalBounds())) {
-            std::cout << "Collision detected!" << std::endl;
             if (velocity.y > 0) {
                 player.setPosition({ player.getPosition().x, wall.getPosition().y - player.getSize().y / 2.f });
+                velocity.y = 0;
+                newAcceleration.y = 0;
+                isGrounded = true;
             }
             else if (velocity.y < 0) {
                 player.setPosition({ player.getPosition().x, wall.getPosition().y + wall.getSize().y + player.getSize().y / 2.f });
+                velocity.y = 0;
+                newAcceleration.y = 0;
             }
         }
 	}
+
+    for (auto& floor : level.getFloors()) {
+        if (player.getGlobalBounds().findIntersection(floor.getGlobalBounds())) {
+            float playerBottom = player.getPosition().y + player.getSize().y / 2.f;
+            float floorTop = floor.getPosition().y;
+
+            if (playerBottom <= floorTop + 5.f && velocity.y > 0) {
+                player.setPosition({ player.getPosition().x, floor.getPosition().y - player.getSize().y / 2.f });
+                velocity.y = 0;
+                newAcceleration.y = 0;
+                isGrounded = true;
+            }
+        }
+    }
+    
+    velocity.y += 0.5f * (oldAcceleration.y + newAcceleration.y) * delta;
+    
+    acceleration = newAcceleration;
 }
 
-void updatePlayerPhysics(Level& level, sf::CircleShape& player, sf::Vector2f velocity) {
-    player.move(velocity);
+void updatePlayerPhysics(Level& level, sf::CircleShape& player, sf::Vector2f& velocity, sf::Vector2f& acceleration, float delta, bool& isGrounded, float gravity, bool fastFall) {
+    
+    sf::Vector2f oldAcceleration = acceleration;
+    player.move(velocity * delta + 0.5f * oldAcceleration * delta * delta);
 
+    float currentGravity = gravity;
+    if (fastFall && velocity.y > 0) {
+        currentGravity *= 2.5f;
+    }
+    sf::Vector2f newAcceleration(0.f, currentGravity);
+    
     float radius = player.getRadius();
     sf::Vector2f playerCenter = player.getPosition();
+
+    isGrounded = false;
 
     for (const auto& wall : level.getWalls()) {
         sf::FloatRect wallBounds = wall.getGlobalBounds();
@@ -112,9 +159,65 @@ void updatePlayerPhysics(Level& level, sf::CircleShape& player, sf::Vector2f vel
 
             player.move({ normX * overlap, normY * overlap });
 
+            if (normY < -0.5f) {
+                velocity.y = 0;
+                newAcceleration.y = 0;
+                isGrounded = true;
+            } else {
+                sf::Vector2f normal(normX, normY);
+                float dotProduct = velocity.x * normX + velocity.y * normY;
+                velocity.x -= dotProduct * normX;
+                velocity.y -= dotProduct * normY;
+            }
+
             playerCenter = player.getPosition();
         }
     }
+
+    for (const auto& floor : level.getFloors()) {
+        sf::FloatRect floorBounds = floor.getGlobalBounds();
+
+        float playerBottom = playerCenter.y + radius;
+        float floorTop = floorBounds.position.y;
+
+        if (playerBottom <= floorTop + 5.f && velocity.y > 0) {
+            float closestX = std::clamp(playerCenter.x, floorBounds.position.x, floorBounds.position.x + floorBounds.size.x);
+            float closestY = std::clamp(playerCenter.y, floorBounds.position.y, floorBounds.position.y + floorBounds.size.y);
+
+            float dx = playerCenter.x - closestX;
+            float dy = playerCenter.y - closestY;
+
+            float distanceSquared = dx * dx + dy * dy;
+
+            if (distanceSquared < radius * radius) {
+                float distance = std::sqrt(distanceSquared);
+
+                if (distance == 0.0f) {
+                    distance = 0.01f;
+                    dx = 0.01f;
+                }
+
+                float overlap = radius - distance;
+
+                float normX = dx / distance;
+                float normY = dy / distance;
+
+                player.move({ normX * overlap, normY * overlap });
+                
+                if (normY < -0.5f) {
+                    velocity.y = 0;
+                    newAcceleration.y = 0;
+                    isGrounded = true;
+                }
+
+                playerCenter = player.getPosition();
+            }
+        }
+    }
+    
+    velocity += 0.5f * (oldAcceleration + newAcceleration) * delta;
+    
+    acceleration = newAcceleration;
 }
 
 void updatePointsVisuals(Level& level, sf::Vector2f activePoint) {
@@ -217,8 +320,53 @@ void runGame() {
 
     sf::Clock clock;
     float playerSpeed = 200.f;
-    sf::Vector2f player1Direction = sf::Vector2f(0.f, 0.f);
-    sf::Vector2f player2Direction = sf::Vector2f(0.f, 0.f);
+    
+    float maxJumpHeight = 150.f;
+    float horizontalDistanceToApex = 100.f;
+    float gravity = 800.f;
+    float jumpForce = -450.f;
+    
+    calculateJumpParameters(maxJumpHeight, horizontalDistanceToApex, playerSpeed, gravity, jumpForce);
+    
+    sf::Vector2f player1Velocity(0.f, 0.f);
+    sf::Vector2f player2Velocity(0.f, 0.f);
+    sf::Vector2f player1Acceleration(0.f, gravity);
+    sf::Vector2f player2Acceleration(0.f, gravity);
+    bool player1Grounded = false;
+    bool player2Grounded = false;
+    
+    float player1CoyoteTime = 0.f;
+    float player2CoyoteTime = 0.f;
+    const float coyoteTimeDuration = 0.1f;
+    
+    bool player1DoubleJumpAvailable = false;
+    bool player2DoubleJumpAvailable = false;
+    
+    bool player1JumpPressed = false;
+    bool player2JumpPressed = false;
+
+    sf::Font font;
+    if (!font.openFromFile("C:/Windows/Fonts/arial.ttf")) {
+        std::cout << "Failed to load font" << std::endl;
+    }
+    
+    sf::Text paramText(font);
+    paramText.setCharacterSize(20);
+    paramText.setFillColor(sf::Color::White);
+    paramText.setOutlineColor(sf::Color::Black);
+    paramText.setOutlineThickness(2);
+
+    std::cout << "=== Parametry skoku ===" << std::endl;
+    std::cout << "Max wysokosc: " << maxJumpHeight << " px" << std::endl;
+    std::cout << "Dystans poziomy do szczytu: " << horizontalDistanceToApex << " px" << std::endl;
+    std::cout << "v_0 (początkowa predkosc skoku): " << jumpForce << " px/s" << std::endl;
+    std::cout << "g (grawitacja): " << gravity << " px/s^2" << std::endl;
+    std::cout << "\nSterowanie:" << std::endl;
+    std::cout << "[1/2] - Zwieksz/Zmniejsz max wysokosc" << std::endl;
+    std::cout << "[3/4] - Zwieksz/Zmniejsz dystans poziomy" << std::endl;
+    std::cout << "[Up/W] - Skok (trzymaj dluzej = wyzszy skok, podwojny skok)" << std::endl;
+    std::cout << "[Down/S] - Szybkie spadanie" << std::endl;
+    std::cout << "=======================" << std::endl;
 
     // test
     Level level(window.getSize().x, window.getSize().y);
@@ -257,28 +405,118 @@ void runGame() {
         {
             if (event->is<sf::Event::Closed>())
                 window.close();
+            
+            if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+                bool paramsChanged = false;
+                
+                if (keyPressed->scancode == sf::Keyboard::Scancode::Num1) {
+                    maxJumpHeight += 10.f;
+                    paramsChanged = true;
+                }
+                else if (keyPressed->scancode == sf::Keyboard::Scancode::Num2) {
+                    maxJumpHeight = std::max(10.f, maxJumpHeight - 10.f);
+                    paramsChanged = true;
+                }
+                
+                else if (keyPressed->scancode == sf::Keyboard::Scancode::Num3) {
+                    horizontalDistanceToApex += 10.f;
+                    paramsChanged = true;
+                }
+                else if (keyPressed->scancode == sf::Keyboard::Scancode::Num4) {
+                    horizontalDistanceToApex = std::max(10.f, horizontalDistanceToApex - 10.f);
+                    paramsChanged = true;
+                }
+                
+                if (paramsChanged) {
+
+                    calculateJumpParameters(maxJumpHeight, horizontalDistanceToApex, playerSpeed, gravity, jumpForce);
+                    player1Acceleration.y = gravity;
+                    player2Acceleration.y = gravity;
+                    
+                    std::cout << "\n=== Parametry skoku ===" << std::endl;
+                    std::cout << "Max wysokosc: " << maxJumpHeight << " px" << std::endl;
+                    std::cout << "Dystans poziomy do szczytu: " << horizontalDistanceToApex << " px" << std::endl;
+                    std::cout << "v_0 (poczatkowa predkosc skoku): " << jumpForce << " px/s" << std::endl;
+                    std::cout << "g (grawitacja): " << gravity << " px/s^2" << std::endl;
+                    std::cout << "=======================" << std::endl;
+                }
+            }
         }
 
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape))
             window.close();
 
-        player1Direction = getDirectionPlayer1();
-        player2Direction = getDirectionPlayer2();
+        sf::Vector2f player1Direction = getDirectionPlayer1();
+        sf::Vector2f player2Direction = getDirectionPlayer2();
 
         float delta = clock.restart().asSeconds();
+        
+        if (player1Grounded) {
+            player1CoyoteTime = coyoteTimeDuration;
+        } else {
+            player1CoyoteTime -= delta;
+        }
+        
+        if (player2Grounded) {
+            player2CoyoteTime = coyoteTimeDuration;
+        } else {
+            player2CoyoteTime -= delta;
+        }
 
-		sf::Vector2f player1Velocity = player1Direction * playerSpeed * delta;
-        updatePlayerPhysics(level, player1, player1Velocity);
-		
-		sf::Vector2f player2Velocity = player2Direction * playerSpeed * delta;
-		updatePlayerPhysics(level, player2, player2Velocity);
+        bool player1JumpPressedNow = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up);
+        if (player1JumpPressedNow && !player1JumpPressed) {
 
-        handlePointLocations(player1, player2, level, point);
+            if (player1Grounded || player1CoyoteTime > 0.f) {
+                player1Velocity.y = jumpForce;
+                player1DoubleJumpAvailable = true;
+                player1CoyoteTime = 0.f;
+            }
+            else if (player1DoubleJumpAvailable) {
+                player1Velocity.y = jumpForce;
+                player1DoubleJumpAvailable = false;
+            }
+        }
+        player1JumpPressed = player1JumpPressedNow;
+        
+        bool player2JumpPressedNow = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W);
+        if (player2JumpPressedNow && !player2JumpPressed) {
 
-        updateArrowDirection(arrow1, player1.getPosition(), point);
-        updateArrowDirection(arrow2, player2.getPosition(), point);
+            if (player2Grounded || player2CoyoteTime > 0.f) {
+                player2Velocity.y = jumpForce;
+                player2DoubleJumpAvailable = true;
+                player2CoyoteTime = 0.f;
+            }
+            else if (player2DoubleJumpAvailable) {
+                player2Velocity.y = jumpForce;
+                player2DoubleJumpAvailable = false;
+            }
+        }
+        player2JumpPressed = player2JumpPressedNow;
 
-        //camera follow player
+        player1Velocity.x = player1Direction.x * playerSpeed;
+        player2Velocity.x = player2Direction.x * playerSpeed;
+        
+        bool player1FastFall = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down);
+        bool player2FastFall = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S);
+
+        updatePlayerPhysics(level, player1, player1Velocity, player1Acceleration, delta, player1Grounded, gravity, player1FastFall);
+		updatePlayerPhysics(level, player2, player2Velocity, player2Acceleration, delta, player2Grounded, gravity, player2FastFall);
+
+        if (!player1JumpPressed && player1Velocity.y < 0) {
+            player1Velocity.y *= 0.5f;
+        }
+        if (!player2JumpPressed && player2Velocity.y < 0) {
+            player2Velocity.y *= 0.5f;
+        }
+        
+        if (player1Grounded) {
+            player1DoubleJumpAvailable = false;
+        }
+        if (player2Grounded) {
+            player2DoubleJumpAvailable = false;
+        }
+
+        // camera follow player
         float minX = windowWidth / 2;
         float maxX = (level.mapWidth * level.tileSize) - windowWidth / 2;
 
@@ -321,6 +559,19 @@ void runGame() {
             window.draw(arrow1);
             window.draw(arrow2);
 		}
+
+        paramText.setString(
+            "Parametry skoku:\n" +
+            std::string("Max wysokosc: ") + std::to_string(static_cast<int>(maxJumpHeight)) + " px\n" +
+            std::string("Dystans poziomy: ") + std::to_string(static_cast<int>(horizontalDistanceToApex)) + " px\n" +
+            std::string("v_0: ") + std::to_string(static_cast<int>(jumpForce)) + " px/s\n" +
+            std::string("g: ") + std::to_string(static_cast<int>(gravity)) + " px/s^2\n\n" +
+            "[1/2] Wysokosc  [3/4] Dystans\n" +
+            "Podwojny skok, Zmienna wys., Szybkie spadanie"
+        );
+        paramText.setPosition({ view.getCenter().x - view.getSize().x / 2.f + 10.f,
+                             view.getCenter().y - view.getSize().y / 2.f + 10.f });
+        window.draw(paramText);
 
         window.display();
     }
