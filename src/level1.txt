@@ -1,5 +1,5 @@
 [textures]
-w=../../../../textures/grass.png
+w=../../../../textures/grass1.png
 f=../../../../textures/wall.png
 p1=../../../../textures/sky.png
 p2=../../../../textures/cloud.png
